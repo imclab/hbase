@@ -379,7 +379,7 @@
             <argLine>-enableassertions -Xmx1900m -Djava.security.egd=file:/dev/./urandom</argLine>
             <redirectTestOutputToFile>${test.output.tofile}</redirectTestOutputToFile>
             <forkCount>2C</forkCount>
-            <reuseForks>true</ruseForks>
+            <reuseForks>true</reuseForks>
           </configuration>
         </plugin>
         <plugin>
