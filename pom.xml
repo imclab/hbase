@@ -1071,7 +1071,7 @@
     <surefire.firstPartGroups>org.apache.hadoop.hbase.SmallTests</surefire.firstPartGroups>
     <surefire.secondPartGroups>org.apache.hadoop.hbase.MediumTests</surefire.secondPartGroups>
     <test.output.tofile>true</test.output.tofile>
-    <surefire.timeout>900</surefire.timeout>
+    <surefire.timeout>1200</surefire.timeout>
   </properties>
 
   <!-- Sorted by groups of dependencies then groupId and artifactId -->
