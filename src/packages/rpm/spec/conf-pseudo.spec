@@ -75,7 +75,7 @@ fi
 
 mkdir -p ${RPM_BUILD_DIR}%{_conf_dir}
 mkdir -p ${RPM_BUILD_DIR}%{_share_dir}/src/packages/conf-pseudo
-cp -f ${RPM_BUILD_DIR}/%{_final_name}/src/packages/conf-pseudo/hbase-site.xml ${RPM_BUILD_DIR}%{_share_dir}/src/packages/conf-pseudo/hbase-site.xml
+cp -f ${RPM_BUILD_DIR}/../BUILD/usr/share/hbase/src/packages/conf-pseudo/hbase-site.xml ${RPM_BUILD_DIR}%{_share_dir}/src/packages/conf-pseudo/hbase-site.xml
 rm -rf ${RPM_BUILD_DIR}/%{_final_name}
 
 %preun

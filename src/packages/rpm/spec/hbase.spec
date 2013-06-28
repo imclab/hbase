@@ -102,6 +102,9 @@ rm -f ${RPM_BUILD_DIR}/%{_final_name}/pom.xml
 mv -f ${RPM_BUILD_DIR}/%{_final_name}/conf/* ${RPM_BUILD_DIR}%{_conf_dir}
 rmdir ${RPM_BUILD_DIR}/%{_final_name}/conf
 rm -rf ${RPM_BUILD_DIR}/%{_final_name}/src
+mv -f ${RPM_BUILD_DIR}/%{_final_name}/sbin/* ${RPM_BUILD_DIR}%{_share_dir}/sbin/
+chmod 0755 ${RPM_BUILD_DIR}%{_share_dir}/sbin/*
+rm -rf ${RPM_BUILD_DIR}/%{_final_name}/sbin
 mv -f ${RPM_BUILD_DIR}/%{_final_name}/* ${RPM_BUILD_DIR}%{_share_dir}
 
 %install

@@ -1049,7 +1049,7 @@
     <package.pid.dir>/var/run/hbase</package.pid.dir>
     <package.release>1</package.release>
     <!-- also must update this when we bump version -->
-    <package.version>0.91.0</package.version>
+    <package.version>0.94.8</package.version>
     <final.name>${project.artifactId}-${project.version}</final.name>
 
     <!-- Test inclusion patterns used by failsafe configuration -->
