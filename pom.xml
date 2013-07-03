@@ -1043,6 +1043,8 @@
     <hadoop-snappy.version>0.0.1-SNAPSHOT</hadoop-snappy.version>
     <clover.version>2.6.3</clover.version>
 
+    <hystrix.version>1.2.16</hystrix.version>
+
     <package.prefix>/usr</package.prefix>
     <package.conf.dir>/etc/hbase</package.conf.dir>
     <package.log.dir>/var/log/hbase</package.log.dir>
@@ -1302,6 +1304,12 @@
       <groupId>org.jamon</groupId>
       <artifactId>jamon-runtime</artifactId>
       <version>2.3.1</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.netflix.hystrix</groupId>
+      <artifactId>hystrix-core</artifactId>
+      <version>${hystrix.version}</version>
     </dependency>
 
     <!-- REST dependencies -->

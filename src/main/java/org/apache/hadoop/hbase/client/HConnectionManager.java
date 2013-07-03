@@ -44,6 +44,9 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.netflix.hystrix.HystrixCommand;
+import com.netflix.hystrix.HystrixCommandGroupKey;
+import com.netflix.hystrix.HystrixCommandKey;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
@@ -830,7 +833,7 @@ public class HConnectionManager {
     @Override
     public HRegionLocation locateRegion(final byte[] regionName) throws IOException {
       return locateRegion(HRegionInfo.getTableName(regionName),
-        HRegionInfo.getStartKey(regionName), false, true);
+              HRegionInfo.getStartKey(regionName), false, true);
     }
 
     @Override
@@ -1416,28 +1419,47 @@ public class HConnectionManager {
       return callable.withoutRetries();
     }
 
-    private <R> Callable<MultiResponse> createCallable(final HRegionLocation loc,
-        final MultiAction<R> multi, final byte [] tableName) {
+    private class RegionCommand<R> extends HystrixCommand<MultiResponse> {
+      private final HRegionLocation loc;
+      private final MultiAction<R> multi;
+      private final byte [] tableName;
+      private final HConnection connection;
+
+      private RegionCommand(final HConnection connection, final HRegionLocation loc, final MultiAction<R> multi, final byte[] tableName) {
+        super(Setter.withGroupKey(HystrixCommandGroupKey.Factory.asKey("HBaseClientKey"))
+                .andCommandKey(HystrixCommandKey.Factory.asKey(
+                        multi.getRegions().size() == 1 ? String.format("RegionCommand-%s", Bytes.toString(multi.getRegions().iterator().next())) :
+                                                         String.format("ServerCommand-%s", loc.getHostname()))));
+        this.connection = connection;
+        this.loc = loc;
+        this.multi = multi;
+        this.tableName = tableName;
+      }
+
+      @Override
+      protected MultiResponse run() throws Exception {
+        final ServerCallable<MultiResponse> serverCallable = new ServerCallable<MultiResponse>(connection, tableName, null) {
+          @Override
+          public MultiResponse call() throws IOException {
+            return server.multi(multi);
+          }
+
+          @Override
+          public void connect(final boolean reload) throws IOException {
+            server = connection.getHRegionConnection(loc.getHostname(), loc.getPort());
+          }
+        };
+        return serverCallable.withoutRetries();
+      }
+    }
+
+    private <R> HystrixCommand<MultiResponse> createCallable(final HRegionLocation loc,
+         final MultiAction<R> multi, final byte [] tableName) {
       // TODO: This does not belong in here!!! St.Ack  HConnections should
       // not be dealing in Callables; Callables have HConnections, not other
       // way around.
-      final HConnection connection = this;
-      return new Callable<MultiResponse>() {
-       public MultiResponse call() throws IOException {
-         ServerCallable<MultiResponse> callable =
-           new ServerCallable<MultiResponse>(connection, tableName, null) {
-             public MultiResponse call() throws IOException {
-               return server.multi(multi);
-             }
-             @Override
-             public void connect(boolean reload) throws IOException {
-               server = connection.getHRegionConnection(loc.getHostname(), loc.getPort());
-             }
-           };
-         return callable.withoutRetries();
-       }
-     };
-   }
+      return new RegionCommand<R>(this, loc, multi, tableName);
+    }
 
     public void processBatch(List<? extends Row> list,
         final byte[] tableName,
@@ -1587,7 +1609,7 @@ public class HConnectionManager {
                 actionsByServer.size());
 
         for (Entry<HRegionLocation, MultiAction<R>> e: actionsByServer.entrySet()) {
-          futures.put(e.getKey(), pool.submit(createCallable(e.getKey(), e.getValue(), tableName)));
+          futures.put(e.getKey(), createCallable(e.getKey(), e.getValue(), tableName).queue());
         }
 
         // step 3: collect the failures and successes and prepare for retry
