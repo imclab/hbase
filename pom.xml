@@ -36,7 +36,7 @@
   <groupId>org.apache.hbase</groupId>
   <artifactId>hbase</artifactId>
   <packaging>jar</packaging>
-  <version>0.94.2-cdh4.2.0</version>
+  <version>0.94.2-cdh4.2.0-hystrix-SNAPSHOT</version>
   <name>HBase</name>
   <description>
     HBase is the &amp;lt;a href="http://hadoop.apache.org"&amp;rt;Hadoop&lt;/a&amp;rt; database. Use it when you need
@@ -991,6 +991,10 @@
     </buildDate>
     <compileSource>1.6</compileSource>
 
+    <!-- CDH versions -->
+    <cdh.zookeeper.version>3.4.5-cdh4.2.0</cdh.zookeeper.version>
+    <cdh.thrift.version>0.9.0</cdh.thrift.version>
+
     <!-- Dependencies -->
     <commons-cli.version>1.2</commons-cli.version>
     <commons-codec.version>1.4</commons-codec.version>
@@ -1019,6 +1023,8 @@
     <zookeeper.version>${cdh.zookeeper.version}</zookeeper.version>
     <hadoop-snappy.version>${cdh.hadoop-snappy.version}</hadoop-snappy.version>
     <cloudera.hash></cloudera.hash>
+
+    <hystrix.version>1.2.16</hystrix.version>
 
     <package.prefix>/usr</package.prefix>
     <package.conf.dir>/etc/hbase</package.conf.dir>
@@ -1268,6 +1274,13 @@
       <artifactId>jamon-runtime</artifactId>
       <version>2.3.1</version>
     </dependency>
+
+    <dependency>
+      <groupId>com.netflix.hystrix</groupId>
+      <artifactId>hystrix-core</artifactId>
+      <version>${hystrix.version}</version>
+    </dependency>
+
 
     <!-- REST dependencies -->
     <dependency>
@@ -2528,3 +2541,4 @@
     </plugins>
   </reporting>
 </project>
+

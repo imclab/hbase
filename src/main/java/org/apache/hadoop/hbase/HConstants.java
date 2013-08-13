@@ -564,6 +564,71 @@ public final class HConstants {
    */
   public static int DEFAULT_HBASE_RPC_TIMEOUT = 60000;
 
+  /**
+   * whether or not to enable hystrix
+   */
+  public static final String HBASE_ENABLE_HYSTRIX = "hbase.regionserver.enable.hystrix";
+
+  /**
+   * Default value of {@link #HBASE_ENABLE_HYSTRIX}
+   */
+  public static final boolean DEFAULT_HBASE_ENABLE_HYSTRIX = false;
+
+  /**
+   * thread core size per region server
+   */
+  public static final String HBASE_REGIONSERVER_THREAD_CORE_SIZE = "hbase.regionserver.thread.core.size";
+
+  /**
+   * Default value of {@link #HBASE_REGIONSERVER_THREAD_CORE_SIZE}
+   */
+  public static final int DEFAULT_HBASE_REGIONSERVER_THREAD_CORE_SIZE = 25;
+
+  /**
+   * region server queue rejection threshold
+   */
+  public static final String HBASE_REGIONSERVER_THREAD_QUEUE_REJECTION_THRESHOLD = "hbase.regionserver.thread.queue.rejection.threshold";
+
+  /**
+   * Default value of {@link #HBASE_REGIONSERVER_THREAD_QUEUE_REJECTION_THRESHOLD}
+   */
+  public static final int DEFAULT_HBASE_REGIONSERVER_THREAD_QUEUE_REJECTION_THRESHOLD = 10;
+
+  /**
+   * region server max queue size
+   */
+  public static final String HBASE_REGIONSERVER_THREAD_MAX_QUEUE_SIZE = "hbase.regionserver.thread.queue.size";
+
+  /**
+   * Default value of {@link #HBASE_REGIONSERVER_THREAD_MAX_QUEUE_SIZE}
+   */
+  public static final int DEFAULT_HBASE_REGIONSERVER_THREAD_MAX_QUEUE_SIZE = -1;
+
+  /**
+   * circuit breaker error threshold percentage
+   */
+  public static final String HBASE_REGIONSERVER_CIRCUIT_BREAKER_ERROR_THRESHOLD_PERCENTAGE = "hbase.regionserver.circuit.breaker.error.threshold.percentage";
+
+  /**
+   * Default value of {@link #HBASE_REGIONSERVER_CIRCUIT_BREAKER_ERROR_THRESHOLD_PERCENTAGE}
+   */
+  public static final int DEFAULT_HBASE_REGIONSERVER_CIRCUIT_BREAKER_ERROR_THRESHOLD_PERCENTAGE = 25;
+
+  /**
+   * circuit breaker request volume threshold
+   */
+  public static final String HBASE_REGIONSERVER_CIRCUIT_BREAKER_VOLUME_THRESHOLD = "hbase.regionserver.circuit.breaker.volume.threshold";
+
+  /**
+   * Default value of {@link #HBASE_REGIONSERVER_CIRCUIT_BREAKER_VOLUME_THRESHOLD}
+   */
+  public static final int DEFAULT_HBASE_REGIONSERVER_CIRCUIT_BREAKER_VOLUME_THRESHOLD = 10;
+
+  /**
+   * circuit breaker sleep window
+   */
+  public static final String HBASE_REGIONSERVER_CIRCUIT_SLEEP_WINDOW_MILLIS = "hbase.regionserver.circuit.breaker.sleep.millis";
+
   /*
    * cluster replication constants.
    */

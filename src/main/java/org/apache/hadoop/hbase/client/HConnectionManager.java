@@ -43,6 +43,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.google.common.base.Throwables;
+import com.netflix.hystrix.HystrixCommand;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
@@ -1351,28 +1353,51 @@ public class HConnectionManager {
       return callable.withoutRetries();
     }
 
-    private <R> Callable<MultiResponse> createCallable(final HRegionLocation loc,
-        final MultiAction<R> multi, final byte [] tableName) {
+    private class RegionCommand<R> extends HystrixCommand<MultiResponse> {
+      private final HRegionLocation loc;
+      private final MultiAction<R> multi;
+      private final byte [] tableName;
+      private final HConnection connection;
+
+      private RegionCommand(final HConnection connection, final HRegionLocation loc, final MultiAction<R> multi, final byte[] tableName) {
+        super(ServerCallable.generateCommandSetter(loc.getHostname(), conf));
+
+        this.connection = connection;
+        this.loc = loc;
+        this.multi = multi;
+        this.tableName = tableName;
+      }
+
+      @Override
+      protected MultiResponse run() throws Exception {
+        final ServerCallable<MultiResponse> serverCallable = new ServerCallable<MultiResponse>(connection, tableName, null) {
+          @Override
+          public MultiResponse call() throws IOException {
+            return server.multi(multi);
+          }
+
+          @Override
+          public void connect(final boolean reload) throws IOException {
+            server = connection.getHRegionConnection(loc.getHostname(), loc.getPort());
+          }
+        };
+        try {
+          serverCallable.setHystrixEnabled(false);
+          return serverCallable.withoutRetries();
+        } catch (Throwable t) {
+          LOG.info("Hystrix HBase", t);
+          throw Throwables.propagate(t);
+        }
+      }
+    }
+
+    private <R> HystrixCommand<MultiResponse> createCallable(final HRegionLocation loc,
+                                                             final MultiAction<R> multi, final byte [] tableName) {
       // TODO: This does not belong in here!!! St.Ack  HConnections should
       // not be dealing in Callables; Callables have HConnections, not other
       // way around.
-      final HConnection connection = this;
-      return new Callable<MultiResponse>() {
-       public MultiResponse call() throws IOException {
-         ServerCallable<MultiResponse> callable =
-           new ServerCallable<MultiResponse>(connection, tableName, null) {
-             public MultiResponse call() throws IOException {
-               return server.multi(multi);
-             }
-             @Override
-             public void connect(boolean reload) throws IOException {
-               server = connection.getHRegionConnection(loc.getHostname(), loc.getPort());
-             }
-           };
-         return callable.withoutRetries();
-       }
-     };
-   }
+      return new RegionCommand<R>(this, loc, multi, tableName);
+    }
 
     public void processBatch(List<? extends Row> list,
         final byte[] tableName,
@@ -1522,7 +1547,18 @@ public class HConnectionManager {
                 actionsByServer.size());
 
         for (Entry<HRegionLocation, MultiAction<R>> e: actionsByServer.entrySet()) {
-          futures.put(e.getKey(), pool.submit(createCallable(e.getKey(), e.getValue(), tableName)));
+          final HystrixCommand<MultiResponse> callable = createCallable(e.getKey(), e.getValue(), tableName);
+          if (conf.getBoolean(HConstants.HBASE_ENABLE_HYSTRIX, HConstants.DEFAULT_HBASE_ENABLE_HYSTRIX)) {
+            futures.put(e.getKey(), callable.queue());
+          } else {
+            futures.put(e.getKey(), pool.submit(new Callable<MultiResponse>() {
+              @Override
+              public MultiResponse call() throws Exception {
+                return callable.execute();
+              }
+            }));
+          }
+
         }
 
         // step 3: collect the failures and successes and prepare for retry

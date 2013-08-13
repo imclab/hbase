@@ -27,7 +27,16 @@ import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicBoolean;
 
+import com.google.common.base.Objects;
+import com.google.common.base.Strings;
+import com.netflix.hystrix.HystrixCommand;
+import com.netflix.hystrix.HystrixCommandGroupKey;
+import com.netflix.hystrix.HystrixCommandKey;
+import com.netflix.hystrix.HystrixCommandProperties;
+import com.netflix.hystrix.HystrixThreadPoolKey;
+import com.netflix.hystrix.HystrixThreadPoolProperties;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.DoNotRetryIOException;
 import org.apache.hadoop.hbase.HConstants;
@@ -49,6 +58,7 @@ import org.apache.hadoop.ipc.RemoteException;
  * @param <T> the class that the ServerCallable handles
  */
 public abstract class ServerCallable<T> implements Callable<T> {
+  private final AtomicBoolean enableHystrix = new AtomicBoolean(true);
   protected final HConnection connection;
   protected final byte [] tableName;
   protected final byte [] row;
@@ -160,7 +170,7 @@ public abstract class ServerCallable<T> implements Callable<T> {
       try {
         beforeCall();
         connect(tries != 0);
-        return call();
+        return callWithHystrix();
       } catch (Throwable t) {
         shouldRetry(t);
         t = translateException(t);
@@ -207,7 +217,7 @@ public abstract class ServerCallable<T> implements Callable<T> {
     try {
       beforeCall();
       connect(false);
-      return call();
+      return callWithHystrix();
     } catch (Throwable t) {
       Throwable t2 = translateException(t);
       if (t2 instanceof IOException) {
@@ -231,5 +241,48 @@ public abstract class ServerCallable<T> implements Callable<T> {
       throw (DoNotRetryIOException)t;
     }
     return t;
+  }
+
+  private T callWithHystrix() throws Exception {
+    if (enableHystrix.get()) {
+      return new WrappedHystrixCommand().run();
+    } else {
+      return call();
+    }
+  }
+
+  private class WrappedHystrixCommand extends HystrixCommand<T> {
+    private WrappedHystrixCommand() {
+      super(generateCommandSetter(Objects.firstNonNull(getServerName(), "default"), getConnection().getConfiguration()));
+    }
+
+    @Override
+    protected T run() throws Exception {
+      return ServerCallable.this.call();
+    }
+  }
+
+  public void setHystrixEnabled(final boolean hystrixEnabled) {
+    this.enableHystrix.set(hystrixEnabled);
+  }
+
+  public static HystrixCommand.Setter generateCommandSetter(final String regionServerName, final Configuration conf) {
+    final int rpcTimeout = conf.getInt(HConstants.HBASE_RPC_TIMEOUT_KEY, HConstants.DEFAULT_HBASE_RPC_TIMEOUT);
+    final String baseServerName = Strings.isNullOrEmpty(regionServerName) ? "null" : regionServerName.split("\\.")[0];
+    return HystrixCommand.Setter.withGroupKey(HystrixCommandGroupKey.Factory.asKey("HBaseClientKey"))
+	      .andCommandKey(HystrixCommandKey.Factory.asKey(String.format("%s-hbase", baseServerName)))
+        .andCommandPropertiesDefaults(HystrixCommandProperties.Setter()
+            .withExecutionIsolationThreadTimeoutInMilliseconds(rpcTimeout)
+            .withCircuitBreakerSleepWindowInMilliseconds(conf.getInt(HConstants.HBASE_REGIONSERVER_CIRCUIT_SLEEP_WINDOW_MILLIS, rpcTimeout))
+            .withCircuitBreakerErrorThresholdPercentage(conf.getInt(HConstants.HBASE_REGIONSERVER_CIRCUIT_BREAKER_ERROR_THRESHOLD_PERCENTAGE, HConstants.DEFAULT_HBASE_REGIONSERVER_CIRCUIT_BREAKER_ERROR_THRESHOLD_PERCENTAGE))
+            .withCircuitBreakerRequestVolumeThreshold(conf.getInt(HConstants.HBASE_REGIONSERVER_CIRCUIT_BREAKER_VOLUME_THRESHOLD, HConstants.DEFAULT_HBASE_REGIONSERVER_CIRCUIT_BREAKER_VOLUME_THRESHOLD))
+            .withExecutionIsolationStrategy(HystrixCommandProperties.ExecutionIsolationStrategy.THREAD)
+        )
+        .andThreadPoolPropertiesDefaults(HystrixThreadPoolProperties.Setter()
+            .withCoreSize(conf.getInt(HConstants.HBASE_REGIONSERVER_THREAD_CORE_SIZE, HConstants.DEFAULT_HBASE_REGIONSERVER_THREAD_CORE_SIZE))
+            .withQueueSizeRejectionThreshold(conf.getInt(HConstants.HBASE_REGIONSERVER_THREAD_QUEUE_REJECTION_THRESHOLD, HConstants.DEFAULT_HBASE_REGIONSERVER_THREAD_QUEUE_REJECTION_THRESHOLD))
+            .withMaxQueueSize(conf.getInt(HConstants.HBASE_REGIONSERVER_THREAD_MAX_QUEUE_SIZE, HConstants.DEFAULT_HBASE_REGIONSERVER_THREAD_MAX_QUEUE_SIZE)))
+
+        .andThreadPoolKey(HystrixThreadPoolKey.Factory.asKey(String.format("HBaseServerCommand-%s", regionServerName)));
   }
 }
